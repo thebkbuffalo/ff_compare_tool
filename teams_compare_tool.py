@@ -1,6 +1,10 @@
 # pry tool
 # import ipdb; ipdb.set_trace()
 
+APIS = {
+  
+}
+
 import sys
 
 def compare_teams(team1, team2):
