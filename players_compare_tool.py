@@ -6,6 +6,8 @@ import ipdb
 import os
 import json
 import pprint
+from alive_progress import alive_bar
+import time
 
 APIS = {
   'tank': "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
@@ -76,8 +78,6 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
       #   stats = item['stats']
       #   stat_names = []
       #   ipdb.set_trace()
-
-
     players_data.append(espn_data)
   return players_data
 
@@ -88,26 +88,29 @@ def compare_players(player1, player2):
   player2_fullname = ' '.join(split_player2)
   player1_list = []
   player2_list = []
-  for key, value in enumerate(APIS):
-    upcase_val = value.upper()
-    url = APIS[value]
-    player1_params = {'playerName': player1, 'getStats': 'true'}
-    player2_params = {'playerName': player2, 'getStats': 'true'}
-    key = os.getenv(upcase_val+'_KEY')
-    host = os.getenv(upcase_val+'_HOST')
-    headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": host}
-    if value == 'tank':
-      tank_data = tank_parser(url, headers, player1_params, player2_params)
-      player1_list.append(tank_data[0])
-      player2_list.append(tank_data[1])
-    elif value == 'espn':
-      p1_pos = player1_list[0]['tank']['position']
-      p2_pos = player2_list[0]['tank']['position']
-      p1_espn_id = player1_list[0]['tank']['espn_id']
-      p2_espn_id = player2_list[0]['tank']['espn_id']
-      espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
-      player1_list.append(espn_data[0])
-      player2_list.append(espn_data[1])
+  with alive_bar(2) as bar:
+    for key, value in enumerate(APIS):
+      upcase_val = value.upper()
+      url = APIS[value]
+      player1_params = {'playerName': player1, 'getStats': 'true'}
+      player2_params = {'playerName': player2, 'getStats': 'true'}
+      key = os.getenv(upcase_val+'_KEY')
+      host = os.getenv(upcase_val+'_HOST')
+      headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": host}
+      if value == 'tank':
+        tank_data = tank_parser(url, headers, player1_params, player2_params)
+        player1_list.append(tank_data[0])
+        player2_list.append(tank_data[1])
+        bar()
+      elif value == 'espn':
+        p1_pos = player1_list[0]['tank']['position']
+        p2_pos = player2_list[0]['tank']['position']
+        p1_espn_id = player1_list[0]['tank']['espn_id']
+        p2_espn_id = player2_list[0]['tank']['espn_id']
+        espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
+        player1_list.append(espn_data[0])
+        player2_list.append(espn_data[1])
+        bar()
   # ipdb.set_trace()
   print(player1_fullname)  
   pprint.pprint(player1_list)
