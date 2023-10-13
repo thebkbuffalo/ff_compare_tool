@@ -72,12 +72,6 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
           name = i['name']
           if name in stat_names:
             espn_data['espn'][cat][name] = i['value']
-      # maybe keep scoring as special teams? not sure how important this data is yet
-      # elif cat == 'Scoring':
-      #   espn_data['espn']['special_teams'] = {}
-      #   stats = item['stats']
-      #   stat_names = []
-      #   ipdb.set_trace()
     players_data.append(espn_data)
   return players_data
 
