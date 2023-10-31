@@ -75,11 +75,11 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     players_data.append(espn_data)
   return players_data
 
-def espn_players_compare(player1, player2):
-  p1 = player1[1]['espn']
-  p2 = player2[1]['espn']
-  for key, value in p1.items():
-    ipdb.set_trace()
+# def espn_players_compare(player1, player2):
+#   p1 = player1[1]['espn']
+#   p2 = player2[1]['espn']
+#   for key, value in p1.items():
+#     ipdb.set_trace()
 
 def compare_players(player1, player2):
   split_player1 = player1.split('_')
@@ -88,32 +88,37 @@ def compare_players(player1, player2):
   player2_fullname = ' '.join(split_player2)
   player1_list = []
   player2_list = []
-  # with alive_bar(3) as bar:
-  for key, value in enumerate(APIS):
-    upcase_val = value.upper()
-    url = APIS[value]
-    player1_params = {'playerName': player1, 'getStats': 'true'}
-    player2_params = {'playerName': player2, 'getStats': 'true'}
-    key = os.getenv(upcase_val+'_KEY')
-    host = os.getenv(upcase_val+'_HOST')
-    headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": host}
-    if value == 'tank':
-      tank_data = tank_parser(url, headers, player1_params, player2_params)
-      player1_list.append(tank_data[0])
-      player2_list.append(tank_data[1])
-      # bar()
-    elif value == 'espn':
-      p1_pos = player1_list[0]['tank']['position']
-      p2_pos = player2_list[0]['tank']['position']
-      p1_espn_id = player1_list[0]['tank']['espn_id']
-      p2_espn_id = player2_list[0]['tank']['espn_id']
-      espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
-      player1_list.append(espn_data[0])
-      player2_list.append(espn_data[1])
-      # bar()
-  espn_players_compare(player1_list, player2_list)
+  with alive_bar(3) as bar:
+    for key, value in enumerate(APIS):
+      upcase_val = value.upper()
+      url = APIS[value]
+      player1_params = {'playerName': player1, 'getStats': 'true'}
+      player2_params = {'playerName': player2, 'getStats': 'true'}
+      key = os.getenv(upcase_val+'_KEY')
+      host = os.getenv(upcase_val+'_HOST')
+      headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": host}
+      if value == 'tank':
+        tank_data = tank_parser(url, headers, player1_params, player2_params)
+        player1_list.append(tank_data[0])
+        player2_list.append(tank_data[1])
+        bar()
+      elif value == 'espn':
+        p1_pos = player1_list[0]['tank']['position']
+        p2_pos = player2_list[0]['tank']['position']
+        p1_espn_id = player1_list[0]['tank']['espn_id']
+        p2_espn_id = player2_list[0]['tank']['espn_id']
+        espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
+        player1_list.append(espn_data[0])
+        player2_list.append(espn_data[1])
+        bar()
+  # espn_players_compare(player1_list, player2_list)
   # bar()
   # ipdb.set_trace()
+  print(player1_fullname)  
+  pprint.pprint(player1_list)
+  print('-----------------------------')
+  print(player2_fullname)
+  pprint.pprint(player2_list)
 
 def main():
   player1 = sys.argv[1]
