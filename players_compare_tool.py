@@ -53,7 +53,7 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
           full_stat_name = cat+'_'+name
           if name in stat_names:
             espn_data['espn'][full_stat_name] = i['value']
-      elif (p1_pos != 'QB' and p2_pos != 'QB') and cat == 'Rushing':
+      elif cat == 'Rushing':
         stats = item['stats']
         stat_names = ['ESPNRBRating', 'netYardsPerGame', 'rushingAttempts', 'rushingBigPlays', 'rushingFirstDowns', 'rushingFirstDowns', 'rushingYardsPerGame', 'rushingTouchdowns', 
                       'stuffs', 'totalTouchdowns', 'totalYards', 'yardsPerGame', 'yardsPerRushAttempt']
@@ -74,12 +74,17 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     players_data.append(espn_data)
   return players_data
 
-def espn_players_compare(player1, player2):
+def espn_players_compare(player1, player2, player1_name, player2_name):
   p1 = player1[1]['espn']
   p2 = player2[1]['espn']
-  ipdb.set_trace()
+  compared_hash = {}
   for key, value in p1.items():
-    ipdb.set_trace()
+    if key == 'General_fumbles':
+      winner = player1_name if value < p2[key] else player2_name
+    else:
+      winner = player1_name if value > p2[key] else player2_name
+    compared_hash[key] = winner
+  return compared_hash
 
 def compare_players(player1, player2):
   split_player1 = player1.split('_')
@@ -110,15 +115,29 @@ def compare_players(player1, player2):
       espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
       player1_list.append(espn_data[0])
       player2_list.append(espn_data[1])
-      # bar()soun
-  espn_players_compare(player1_list, player2_list)
+      # bar()
+  espn_compare_dict = espn_players_compare(player1_list, player2_list, player1_fullname, player2_fullname)
+  p1_list = []
+  p2_list = []
+  for key, value in espn_compare_dict.items():
+    if value == player1_fullname:
+      p1_list.append(value)
+    else:
+      p2_list.append(value)
+  p1_list_len = len(p1_list)
+  p2_list_len = len(p2_list)
+  print(player1_fullname+' total points: '+str(p1_list_len))
+  print('----------')
+  print(player2_fullname+' total points: '+str(p2_list_len))
+  print('-----------')
+  winner = player1_fullname if p1_list_len > p2_list_len else player2_fullname
+  print(winner)
   # bar()
-  # ipdb.set_trace()
-  # print(player1_fullname)  
-  # pprint.pprint(player1_list)
-  # print('-----------------------------')
-  # print(player2_fullname)
-  # pprint.pprint(player2_list)
+  print(player1_fullname)  
+  pprint.pprint(player1_list)
+  print('-----------------------------')
+  print(player2_fullname)
+  pprint.pprint(player2_list)
 
 def main():
   player1 = sys.argv[1]
