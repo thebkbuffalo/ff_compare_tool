@@ -11,7 +11,8 @@ import time
 
 APIS = {
   'tank': "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
-  'espn': 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us'
+  'espn': 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us',
+  'odds': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2023&seasontype=2&week='
 }
 
 def tank_parser(url, headers, p1, p2):
@@ -19,6 +20,7 @@ def tank_parser(url, headers, p1, p2):
   players_data = []
   for player in players:
     data = requests.get(url, headers=headers, params=player).json()['body'][0]
+    ipdb.set_trace()
     tank_data = {'tank': {
       'name': data['espnName'],
       'position': data['pos'],
@@ -38,6 +40,7 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     espn_data = {'espn': {}}
     espn_url = split_url[0] + player['p_id'] + split_url[1]
     data = requests.get(espn_url).json()['splits']['categories']
+    
     for item in data:
       cat = item['displayName']
       if cat == 'General':
@@ -86,7 +89,7 @@ def espn_players_compare(player1, player2, player1_name, player2_name):
     compared_hash[key] = winner
   return compared_hash
 
-def compare_players(player1, player2):
+def compare_players(player1, player2, week):
   split_player1 = player1.split('_')
   split_player2 = player2.split('_')
   player1_fullname = ' '.join(split_player1)
@@ -142,7 +145,7 @@ def compare_players(player1, player2):
 def main():
   player1 = sys.argv[1]
   player2 = sys.argv[2]
-  compare_players(player1, player2)
+  compare_players(player1, player2, week)
     
 
 if __name__ == "__main__":
