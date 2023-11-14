@@ -1,3 +1,5 @@
+# in progress fantasy football player compare tool
+
 # pry tool:  ipdb.set_trace()
 
 import requests
