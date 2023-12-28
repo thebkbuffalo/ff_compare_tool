@@ -10,11 +10,13 @@ import json
 import pprint
 from alive_progress import alive_bar
 import time
+import datetime
 
 APIS = {
-  'tank': "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
-  'espn': 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us',
-  'odds': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2023&seasontype=2&week='
+  'tank':     "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
+  'matchups': "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek",
+  'espn':     "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us",
+  'odds':     ""
 }
 
 def tank_parser(url, headers, p1, p2):
@@ -22,17 +24,38 @@ def tank_parser(url, headers, p1, p2):
   players_data = []
   for player in players:
     data = requests.get(url, headers=headers, params=player).json()['body'][0]
-    ipdb.set_trace()
     tank_data = {'tank': {
       'name': data['espnName'],
       'position': data['pos'],
       'espn_id': data['espnID'],
       'cbs_id': data['cbsPlayerID'],
       'rotowire_id': data['rotoWirePlayerID'],
-      'yahoo_id': data['yahooPlayerID']
+      'yahoo_id': data['yahooPlayerID'],
+      'team': data['stats']['team']
     }}
     players_data.append(tank_data)
   return players_data
+
+def matchups_parser(url, headers, params, teams):
+  data = requests.get(url, headers=headers, params=params).json()['body']
+  matchups_data = []
+  for i, t in enumerate(teams):
+    i += 1
+    away = list(filter(lambda d: d['away'] == t, data))
+    home = list(filter(lambda d: d['home'] == t, data))
+    h_a = home[0] if len(home) == 1 else away[0]
+    h_a_txt = 'home' if h_a['home'] == t else 'away'
+    ipdb.set_trace()
+    team_matchup_data = {
+      'home_or_away': h_a_txt,
+      'gameID': h_a['gameID'],
+      'espnID': h_a['espnID'],
+      'opponent': h_a['home'] if h_a_txt == 'away' else h_a['away'],
+      'gameDate': h_a['gameDate']
+    }
+    matchups_data.append(team_matchup_data)
+  return matchups_data
+      
 
 def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
   split_url = url.split('pid')
@@ -42,7 +65,6 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     espn_data = {'espn': {}}
     espn_url = split_url[0] + player['p_id'] + split_url[1]
     data = requests.get(espn_url).json()['splits']['categories']
-    
     for item in data:
       cat = item['displayName']
       if cat == 'General':
@@ -79,6 +101,10 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     players_data.append(espn_data)
   return players_data
 
+def odds_parser(url, p1_team, p2_team):
+  data = requests.get(url).json()
+  
+
 def espn_players_compare(player1, player2, player1_name, player2_name):
   p1 = player1[1]['espn']
   p2 = player2[1]['espn']
@@ -102,25 +128,43 @@ def compare_players(player1, player2, week):
   for key, value in enumerate(APIS):
     upcase_val = value.upper()
     url = APIS[value]
-    player1_params = {'playerName': player1, 'getStats': 'true'}
-    player2_params = {'playerName': player2, 'getStats': 'true'}
-    key = os.getenv(upcase_val+'_KEY')
-    host = os.getenv(upcase_val+'_HOST')
-    headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": host}
-    if value == 'tank':
-      tank_data = tank_parser(url, headers, player1_params, player2_params)
-      player1_list.append(tank_data[0])
-      player2_list.append(tank_data[1])
+    match value:
+      case 'tank':
+        api_key = os.getenv(upcase_val+'_KEY')
+        api_host = os.getenv(upcase_val+'_HOST')
+        player1_params = {'playerName': player1, 'getStats': 'true'}
+        player2_params = {'playerName': player2, 'getStats': 'true'}
+        headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": api_host}
+        tank_data = tank_parser(url, headers, player1_params, player2_params)
+        player1_list.append(tank_data[0])
+        player2_list.append(tank_data[1])
       # bar()
-    elif value == 'espn':
-      p1_pos = player1_list[0]['tank']['position']
-      p2_pos = player2_list[0]['tank']['position']
-      p1_espn_id = player1_list[0]['tank']['espn_id']
-      p2_espn_id = player2_list[0]['tank']['espn_id']
-      espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
-      player1_list.append(espn_data[0])
-      player2_list.append(espn_data[1])
+      case 'matchups':
+        api_key = os.getenv('TANK_KEY')
+        api_host = os.getenv('TANK_HOST')
+        year = str(datetime.date.today().year)
+        query_params = {'week': week, 'seasonType': 'reg', 'season': year}
+        headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": api_host}
+        teams = [player1_list[0]['tank']['team'], player2_list[0]['tank']['team']]
+        matchups_data = matchups_parser(url, headers, query_params, teams)
+        player1_list.append({'matchups': matchups_data[0]})
+        player2_list.append({'matchups': matchups_data[1]})
+      case 'espn':
+        p1_pos = player1_list[0]['tank']['position']
+        p2_pos = player2_list[0]['tank']['position']
+        p1_espn_id = player1_list[0]['tank']['espn_id']
+        p2_espn_id = player2_list[0]['tank']['espn_id']
+        espn_data = espn_parser(url, p1_espn_id, p2_espn_id, p1_pos, p2_pos)
+        player1_list.append(espn_data[0])
+        player2_list.append(espn_data[1])
       # bar()
+      case 'odds':
+        api_key = os.getenv(upcase_val+'_API_KEY')
+        url = 'https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?apiKey='+api_key+'&regions=us&markets=h2h,spreads&oddsFormat=american&bookmakers=fanduel'
+        p1_team = player1_list[0]['tank']['team']
+        p2_team = player2_list[0]['tank']['team']
+        odds_data = odds_parser(url, p1_team, p2_team)
+  ipdb.set_trace()
   espn_compare_dict = espn_players_compare(player1_list, player2_list, player1_fullname, player2_fullname)
   p1_list = []
   p2_list = []
@@ -136,17 +180,19 @@ def compare_players(player1, player2, week):
   print(player2_fullname+' total points: '+str(p2_list_len))
   print('-----------')
   winner = player1_fullname if p1_list_len > p2_list_len else player2_fullname
-  print(winner)
+  print('winner is ' + winner)
   # bar()
-  print(player1_fullname)  
-  pprint.pprint(player1_list)
-  print('-----------------------------')
-  print(player2_fullname)
-  pprint.pprint(player2_list)
+  # print('----------------')
+  # print(player1_fullname)  
+  # pprint.pprint(player1_list)
+  # print('-----------------------------')
+  # print(player2_fullname)
+  # pprint.pprint(player2_list)
 
 def main():
   player1 = sys.argv[1]
   player2 = sys.argv[2]
+  week = sys.argv[3]
   compare_players(player1, player2, week)
     
 
