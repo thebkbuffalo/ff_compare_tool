@@ -12,13 +12,6 @@ from alive_progress import alive_bar
 import time
 import datetime
 
-APIS = {
-  'tank':     "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
-  'matchups': "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek",
-  'espn':     "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us",
-  'odds':     ""
-}
-
 def tank_parser(url, headers, p1, p2):
   players = [p1, p2]
   players_data = []
@@ -45,7 +38,6 @@ def matchups_parser(url, headers, params, teams):
     home = list(filter(lambda d: d['home'] == t, data))
     h_a = home[0] if len(home) == 1 else away[0]
     h_a_txt = 'home' if h_a['home'] == t else 'away'
-    ipdb.set_trace()
     team_matchup_data = {
       'home_or_away': h_a_txt,
       'gameID': h_a['gameID'],
@@ -101,13 +93,20 @@ def espn_parser(url, p1_id, p2_id, p1_pos, p2_pos):
     players_data.append(espn_data)
   return players_data
 
-def odds_parser(url, p1_team, p2_team):
-  data = requests.get(url).json()
-  
+def espn_odds_parser(p1_team, p2_team, p1_url, p2_url):
+  p1_data = requests.get(p1_url).json()['items']
+  p2_data = requests.get(p2_url).json()['items']
+  p1_odds = p1_data[0]['details']
+  p2_odds = p2_data[0]['details']
+  p1_odds_in_favor = p1_team in p1_odds
+  p2_odds_in_favor = p2_team in p2_odds
+  odds_in_favor = [{'odds': {'winner': p1_odds_in_favor}}, {'odds': {'winner': p2_odds_in_favor}}]
+  return odds_in_favor
 
 def espn_players_compare(player1, player2, player1_name, player2_name):
-  p1 = player1[1]['espn']
-  p2 = player2[1]['espn']
+  ipdb.set_trace()
+  p1 = player1[2]['espn']
+  p2 = player2[2]['espn']
   compared_hash = {}
   for key, value in p1.items():
     if key == 'General_fumbles':
@@ -124,14 +123,20 @@ def compare_players(player1, player2, week):
   player2_fullname = ' '.join(split_player2)
   player1_list = []
   player2_list = []
+  api_urls = {
+  'tank':       "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo",
+  'matchups':   "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek",
+  'espn_stats': "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/types/2/athletes/pid/statistics/0?lang=en&region=us",
+  'espn_odds':  "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/event_id/competitions/event_id/odds",
+  'predictions': "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/event_id/competitions/event_id/odds",
+}
   # with alive_bar(3) as bar:
-  for key, value in enumerate(APIS):
-    upcase_val = value.upper()
-    url = APIS[value]
-    match value:
+  for key, value in api_urls.items():
+    url = value
+    match key:
       case 'tank':
-        api_key = os.getenv(upcase_val+'_KEY')
-        api_host = os.getenv(upcase_val+'_HOST')
+        api_key = os.getenv('TANK_KEY')
+        api_host = os.getenv('TANK_HOST')
         player1_params = {'playerName': player1, 'getStats': 'true'}
         player2_params = {'playerName': player2, 'getStats': 'true'}
         headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": api_host}
@@ -142,14 +147,14 @@ def compare_players(player1, player2, week):
       case 'matchups':
         api_key = os.getenv('TANK_KEY')
         api_host = os.getenv('TANK_HOST')
-        year = str(datetime.date.today().year)
-        query_params = {'week': week, 'seasonType': 'reg', 'season': year}
+        # year = str(datetime.date.today().year)
+        query_params = {'week': week, 'seasonType': 'reg', 'season': '2023'}
         headers = {"X-RapidAPI-Key": api_key, "X-RapidAPI-Host": api_host}
         teams = [player1_list[0]['tank']['team'], player2_list[0]['tank']['team']]
         matchups_data = matchups_parser(url, headers, query_params, teams)
         player1_list.append({'matchups': matchups_data[0]})
         player2_list.append({'matchups': matchups_data[1]})
-      case 'espn':
+      case 'espn_stats':
         p1_pos = player1_list[0]['tank']['position']
         p2_pos = player2_list[0]['tank']['position']
         p1_espn_id = player1_list[0]['tank']['espn_id']
@@ -158,13 +163,21 @@ def compare_players(player1, player2, week):
         player1_list.append(espn_data[0])
         player2_list.append(espn_data[1])
       # bar()
-      case 'odds':
-        api_key = os.getenv(upcase_val+'_API_KEY')
-        url = 'https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?apiKey='+api_key+'&regions=us&markets=h2h,spreads&oddsFormat=american&bookmakers=fanduel'
+      case 'espn_odds':
         p1_team = player1_list[0]['tank']['team']
         p2_team = player2_list[0]['tank']['team']
-        odds_data = odds_parser(url, p1_team, p2_team)
-  ipdb.set_trace()
+        p1_event_id = player1_list[1]['matchups']['espnID']
+        p2_event_id = player2_list[1]['matchups']['espnID']
+        split_url = url.split('event_id')
+        p1_url = split_url[0]+p1_event_id+split_url[1]+p1_event_id+split_url[2]
+        p2_url = split_url[0]+p2_event_id+split_url[1]+p2_event_id+split_url[2]
+        odds_data = espn_odds_parser(p1_team, p2_team, p1_url, p2_url)
+        player1_list.append(odds_data[0])
+        player2_list.append(odds_data[1])
+      case 'predictions':
+        print('predictions')
+        # here will be predictions
+
   espn_compare_dict = espn_players_compare(player1_list, player2_list, player1_fullname, player2_fullname)
   p1_list = []
   p2_list = []
